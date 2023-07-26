@@ -5,23 +5,32 @@ import re
 # Tokenizer
 @inheritable_enum
 class TokenType(Enum):
+    @staticmethod
+    def strip_space_before(): return " "
     def __init__(self, pattern):
         self.pattern = re.compile(pattern)
 class Token:
-    def __init__(self, type: TokenType, content: str):
+    def __init__(self, type: TokenType, content: str, space_before: str):
         self.type = type
         self.content = content
 def tokenize(token_class, input: str):
     result = []
+    space_before = None
+    spaces = token_class.strip_space_before()
+    if spaces:
+        new_input = input.lstrip(spaces)
+        space_before, input = input[:len(input)-len(new_input)], new_input
     while input:
-        match = None
         for token_type in token_class:
             if match := token_type.pattern.match(input):
-                result.append(Token(token_type, match.group()))
+                result.append(Token(token_type, match.group(), space_before))
                 input = input[len(match.group()):]
                 break
         else:
             raise Exception("No Token matched at: %.7s..." % input)
+        if spaces:
+            new_input = input.lstrip(spaces)
+            space_before, input = input[:len(input)-len(new_input)], new_input
     return result
 
 # Parser State
@@ -136,5 +145,6 @@ def print_ast(ast, indent=None):
         for number, value in enumerate(ast, 1):
             print("    "*indent + "    ." + str(number) + " = ", end="")
             print_ast(value, indent+1)
+        print("    "*indent + "]")
     else:
         print( "None")
