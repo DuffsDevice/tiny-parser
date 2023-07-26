@@ -31,8 +31,9 @@ class CppToken(TokenType):
     IDENTIFIER              = r"^[a-zA-Z_][a-zA-Z0-9_]*\b"
     LITERAL                 = r"^[1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b"
 CppGrammar = {
-    "0.1": Rule( BinaryOperation , ("1", "operands") , ([CppToken.PLUS, CppToken.MINUS], "type") , ("0", "operands") ),
-    "0.2": Rule( None , "1" ),
+    "0.1": Rule( BinaryOperation , ("1", "operands") , ([CppToken.PLUS, CppToken.MINUS], "type") , ("0.2", "operands") ),
+    "0.2.1": Rule( None , ("1", "operands") , ([CppToken.PLUS, CppToken.MINUS], "type") , ("0.2", "operands") ),
+    "0.2.2": Rule( None , "1" ),
     "1.1": Rule( BinaryOperation , ("2", "operands") , ([CppToken.TIMES, CppToken.DIVIDES], "type") , ("1", "operands") ),
     "1.2": Rule( None , "2" ),
     "2.1": Rule( UnaryOperation , ([CppToken.MINUS, CppToken.PLUS], "type") , ("2", "operand") ),
@@ -43,4 +44,4 @@ CppGrammar = {
     "4.2": Rule( Identifier , (CppToken.IDENTIFIER, "name") ),
 }
 
-tiny_parser.print_ast( tiny_parser.parse( CppToken , CppGrammar, "1+2+-3" , "0") )
+tiny_parser.print_ast( tiny_parser.parse( CppToken , CppGrammar, "1+2- -3" , "0") )
