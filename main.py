@@ -35,7 +35,7 @@ CppGrammar = {
     "0.2": Rule( None , "1" ),
     "1.1": Rule( BinaryOperation , ("2", "operands") , ([CppToken.TIMES, CppToken.DIVIDES], "type") , ("1", "operands") ),
     "1.2": Rule( None , "2" ),
-    "2.1": Rule( UnaryOperation , ([CppToken.MINUS, CppToken.PLUS], "type") , "2" ),
+    "2.1": Rule( UnaryOperation , ([CppToken.MINUS, CppToken.PLUS], "type") , ("2", "operand") ),
     "2.2": Rule( None , "3" ),
     "3.1": Rule( None , CppToken.LEFT_PARENTHESIS , "0" , CppToken.RIGHT_PARENTHESIS ),
     "3.2": Rule( None , "4" ),
@@ -43,4 +43,4 @@ CppGrammar = {
     "4.2": Rule( Identifier , (CppToken.IDENTIFIER, "name") ),
 }
 
-tiny_parser.print_ast( tiny_parser.parse( CppToken , CppGrammar, "pi*4/3+(-5+foo)" , "0") )
+tiny_parser.print_ast( tiny_parser.parse( CppToken , CppGrammar, "1+2+-3" , "0") )
