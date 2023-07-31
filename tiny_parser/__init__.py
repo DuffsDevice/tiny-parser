@@ -100,9 +100,11 @@ class StandardToken(TokenType):
     SEMICOLON               = r"^;"
     COLON                   = r"^:"
     COMMA                   = r"^,"
+    HAT                     = r"^,"
     DOT                     = r"^\."
     IDENTIFIER              = r"^[a-zA-Z_][a-zA-Z0-9_]*\b"
-    LITERAL                 = r"^[1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b"
+    NUMBER                  = r'^[1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b'
+    STRING                  = r'^"([^"]|\")+"'
 class Language:
     def __init__(self, rules, token_class=StandardToken, root_rule="0."):
         self.rules = rules
