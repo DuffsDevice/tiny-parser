@@ -1,4 +1,4 @@
-from .. import Rule, StandardToken, Language, AST, StandardToken
+from .. import Rule, StandardToken, Language, AST
 
 # C++
 class Program(AST): pass
@@ -14,8 +14,8 @@ cpp_grammar = {
     # Statement Blocks
     "0.1": Rule( Program , ("10.", "statements") , ("1.", "statements") ),
     "0.2": Rule( Program , ("10.", "statements") ),
-    "1.1": Rule( None , ("10.", "statements") , ("1.", "statements") ),
-    "1.2": Rule( None , ("10.", "statements") ),
+    "1.1": Rule( [] , "10." , "1." ),
+    "1.2": Rule( [] , "10." ),
 
     # Statement
     "10.1": Rule( Statement , StandardToken.SEMICOLON ),
@@ -33,7 +33,7 @@ cpp_grammar = {
     "22.3": Rule( None , "23." ),
     "23.1": Rule( None , StandardToken.LEFT_PARENTHESIS , "20." , StandardToken.RIGHT_PARENTHESIS ),
     "23.2": Rule( None , "24." ),
-    "24.1": Rule( Literal , (StandardToken.LITERAL, "value") ),
-    "24.2": Rule( Identifier , (StandardToken.IDENTIFIER, "name") ),
+    "24.1": Rule( Literal , (StandardToken.LITERAL, ("value", "content")) ),
+    "24.2": Rule( Identifier , (StandardToken.IDENTIFIER, ("name", "content")) ),
 }
 cpp = Language(cpp_grammar)

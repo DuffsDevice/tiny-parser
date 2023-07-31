@@ -52,12 +52,13 @@ class ParserState:
 
 def set_or_append(dict, key, value):
     orig_value = dict.get(key, None)
-    if orig_value:
-        if not isinstance(value, list):
-            value = [value]
-        if not isinstance(orig_value, list):
-            orig_value = [orig_value]
-        dict[key] = [*orig_value, *value]
+    if orig_value is not None:
+        if value is not None:
+            if not isinstance(value, list):
+                value = [value]
+            if not isinstance(orig_value, list):
+                orig_value = [orig_value]
+            dict[key] = [*orig_value, *value]
     else:
         dict[key] = value
 
@@ -66,7 +67,7 @@ class AST: pass
 class Rule:
     def __init__(self, target_class:type, *pattern ):
         self.target_class = target_class
-        self.pattern = pattern
+        self.pattern = pattern if pattern else []
 class StandardToken(TokenType):
     DOUBLE_EQUAL            = r"^=="
     EXCLAMATION_EQUAL       = r"^!="
@@ -103,10 +104,10 @@ class StandardToken(TokenType):
     IDENTIFIER              = r"^[a-zA-Z_][a-zA-Z0-9_]*\b"
     LITERAL                 = r"^[1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b"
 class Language:
-    def __init__(self, rules, root_rule="0.", token_class=StandardToken):
+    def __init__(self, rules, token_class=StandardToken, root_rule="0."):
         self.rules = rules
-        self.root_rule = root_rule
         self.token_class = token_class
+        self.root_rule = root_rule
 
 # Parser
 def parse_ex(language:dict, rule_path: str, state_reference):
@@ -116,58 +117,77 @@ def parse_ex(language:dict, rule_path: str, state_reference):
             self.requirement = requirement
             self.result = result
     cache = [CacheEntry(state_reference, None, None)]
-    viable_rules = [rule for key, rule in language.items() if key.startswith(rule_path)]
-    for rule in viable_rules:
-        result_dict = {}
-        anonymous_results = []
-        cache_usage = 1
-        for requirement in rule.pattern:
-            target_attributes = None
+    viable_rules = [(key, rule) for key, rule in language.items() if key.startswith(rule_path)]
+    for key, rule in viable_rules:
+        for number, requirement in enumerate(rule.pattern, 1):
             if isinstance(requirement, tuple):
-                requirement, target_attributes = requirement[0], requirement[1] if isinstance(requirement[1], list) else [requirement[1]]
-            # Check if we can use the cache for this requirement
+                requirement = requirement[0]
             cache_usable = False
-            if len(cache) > cache_usage:
-                if cache[cache_usage].requirement is requirement:
+            if len(cache) > number:
+                if cache[number].requirement is requirement: # Check if we can use the cache for this requirement
                     cache_usable = True
                 else:
-                    cache = cache[:cache_usage+1] # Truncate cache to prefix we can re-use
+                    cache = cache[:number+1] # Truncate cache to prefix we can re-use
             if not cache_usable:
                 cache.append(CacheEntry([cache[-1].state_reference[0].fork()], requirement)) # Create new cache layer
+                success = False
                 if isinstance(requirement, TokenType):
                     cache[-1].result = cache[-1].state_reference[0].take(requirement)
                 elif isinstance(requirement, list):
                     cache[-1].result = cache[-1].state_reference[0].take(*requirement)
                 elif isinstance(requirement, str): # Referring to another rule
-                    cache[-1].result = parse_ex(language, requirement, cache[-1].state_reference)
-                if not cache[-1].result:
+                    cache[-1].result, success = parse_ex(language, requirement, cache[-1].state_reference)
+                if cache[-1].result is None and success == False:
                     cache.pop()
                     break
-            if isinstance(target_attributes, list):
-                if target_attributes and isinstance(cache[cache_usage].result, dict):
-                    for key, value in cache[cache_usage].result.items():
-                        set_or_append(result_dict, key, value)
-                else:
-                    for target_attribute in target_attributes:
-                        set_or_append(result_dict, target_attribute, cache[cache_usage].result)
-            else:
-                anonymous_results.append(cache[cache_usage].result)
-            cache_usage += 1
         else:
+            # Rule pattern matched!
+            result = {"":[]}
+            for number, requirement in enumerate(rule.pattern, 1):
+                target_attributes = [None]
+                if isinstance(requirement, tuple):
+                    target_attributes = requirement[1] if isinstance(requirement[1], list) else [requirement[1]]
+                for target_attribute in target_attributes:
+                    intermediate_result = cache[number].result
+                    attribute_transformer = None
+                    if isinstance(target_attribute, tuple):
+                        target_attribute, attribute_transformer = target_attribute[0], target_attribute[1]
+                    if isinstance(attribute_transformer, str):
+                        if isinstance(intermediate_result, dict):
+                            intermediate_result = intermediate_result.get(attribute_transformer, None)
+                        elif hasattr(intermediate_result, attribute_transformer):
+                            intermediate_result = getattr(intermediate_result, attribute_transformer)
+                    elif callable(attribute_transformer):
+                        intermediate_result = attribute_transformer(intermediate_result)
+                    if target_attribute == None:
+                        set_or_append(result, "", intermediate_result)
+                    elif target_attribute == "":
+                        if isinstance(intermediate_result, dict):
+                            for key, value in intermediate_result.items():
+                                set_or_append(result, key, value)
+                        else:
+                            raise Exception("Cannot insert non-dictionary into current object at rule [%s]" % key )
+                    else:
+                        set_or_append(result, target_attribute, intermediate_result)
             state_reference[0] = cache[-1].state_reference[0] # Override parser state of caller function
-            if rule.target_class:
+            if rule.target_class == {}:
+                return result, True
+            elif rule.target_class == []:
+                return result[""], True
+            elif rule.target_class == "":
+                return "".join([str(value) for value in result[""]]), True
+            elif callable(rule.target_class):
                 object_result = rule.target_class()
-                for key, value in result_dict.items():
-                    setattr(object_result, key, value)
-                return object_result
-            elif result_dict:
-                return result_dict
-            elif anonymous_results:
-                return anonymous_results[0] if len(anonymous_results) == 1 else anonymous_results
-    return None
+                for key, value in result.items():
+                    if key:
+                        setattr(object_result, key, value)
+                return object_result, True
+            else:
+                return result[""][0] if len(result[""]) == 1 else result[""] or None, True
+    return None, False
 # Use this
 def parse(language: Language, input: str):
-    return parse_ex(language.rules, language.root_rule, [ParserState(tokenize(language.token_class, input))] )
+    return parse_ex(language.rules, language.root_rule, [ParserState(tokenize(language.token_class, input))] )[0]
 
 # Visualizer
 def print_ast(ast, indent=None):
@@ -181,11 +201,13 @@ def print_ast(ast, indent=None):
         for attribute, value in vars(ast).items():
             print("    "*indent + "    ." + attribute + " = ", end="")
             print_ast(value, indent+1)
+    elif ast == []:
+        print("[]")
     elif isinstance(ast, list):
-        print( "[" if list else "[]" )
+        print("[")
         for number, value in enumerate(ast, 1):
             print("    "*indent + "    ." + str(number) + " = ", end="")
             print_ast(value, indent+1)
         print("    "*indent + "]")
     else:
-        print( "None")
+        print(ast)
