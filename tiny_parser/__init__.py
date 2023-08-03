@@ -1,4 +1,5 @@
 from enum import Enum
+from inspect import isclass
 from extendableenum import inheritable_enum
 import re
 
@@ -41,23 +42,23 @@ class ParserState:
     @property
     def current_token(self):
         return self.token_list[self.current_index] if self.current_index < len(self.token_list) else None
-    def take(self, *token_types):
+    def take(self, token_type):
         current_token = self.current_token
-        if current_token and current_token.type in token_types:
+        if current_token and current_token.type == token_type:
             self.current_index += 1
-            return current_token
-        return None
+            return current_token, True
+        return None, False
     def fork(self):
         return ParserState(self.token_list, self.current_index)
 
+def ensure_list(value):
+    return value if isinstance(value, list) else [value]
 def set_or_append(dict, key, value):
     orig_value = dict.get(key, None)
     if orig_value is not None:
         if value is not None:
-            if not isinstance(value, list):
-                value = [value]
-            if not isinstance(orig_value, list):
-                orig_value = [orig_value]
+            value = ensure_list(value)
+            orig_value = ensure_list(orig_value)
             dict[key] = [*orig_value, *value]
     else:
         dict[key] = value
@@ -65,9 +66,9 @@ def set_or_append(dict, key, value):
 # Abstract Syntax Tree Classes
 class AST: pass
 class Rule:
-    def __init__(self, target_class:type, *pattern ):
-        self.target_class = target_class
-        self.pattern = pattern if pattern else []
+    def __init__(self, target, *steps ):
+        self.target = target
+        self.steps = steps if steps else []
 class StandardToken(TokenType):
     DOUBLE_EQUAL            = r"^=="
     EXCLAMATION_EQUAL       = r"^!="
@@ -113,80 +114,133 @@ class Language:
 
 # Parser
 def parse_ex(language:dict, rule_path: str, state_reference):
-    class CacheEntry:
-        def __init__(self, state_reference, requirement=None, result=None):
+    class Step:
+        def __init__(self, state_reference, requirement=None, destination=None, result=None):
             self.state_reference = state_reference
             self.requirement = requirement
+            self.destination = destination
             self.result = result
-    cache = [CacheEntry(state_reference, None, None)]
-    viable_rules = [(key, rule) for key, rule in language.items() if key.startswith(rule_path)]
-    for key, rule in viable_rules:
-        for number, requirement in enumerate(rule.pattern, 1):
-            if isinstance(requirement, tuple):
-                requirement = requirement[0]
-            cache_usable = False
-            if len(cache) > number:
-                if cache[number].requirement is requirement: # Check if we can use the cache for this requirement
-                    cache_usable = True
+    history = [Step(state_reference, None, None)] # In order to enable recursion to reference the last step
+
+    # Determine viable rules
+    rules = [(key, rule) for key, rule in language.items() if key.startswith(rule_path)]
+
+    # See, if any rule matches
+    for key, rule in rules:
+        for step_number, step in enumerate(rule.steps, 1):
+
+            # A step can be a tuple "(step, destination)"
+            destination = None
+            if isinstance(step, tuple):
+                step, destination = step[0], step[1]
+
+            # The step can actually be a list "(step-option-1, step-option-2, etc.)"
+            for option in ensure_list(step):
+
+                # Each step option can itself be a tuple "(step, destination-override)"
+                actual_destination = destination
+                if isinstance(option, tuple):
+                    option, actual_destination = option[0], option[1] # You can also specify a destination per option
+
+                # Determine, whether we have a saved history of the current step being matched
+                if len(history) > step_number and history[step_number].requirement is option:
+                    history[step_number].destination = actual_destination # The destination might change, but we don't need to reexecute
                 else:
-                    cache = cache[:number+1] # Truncate cache to prefix we can re-use
-            if not cache_usable:
-                cache.append(CacheEntry([cache[-1].state_reference[0].fork()], requirement)) # Create new cache layer
-                success = False
-                if isinstance(requirement, TokenType):
-                    cache[-1].result = cache[-1].state_reference[0].take(requirement)
-                elif isinstance(requirement, list):
-                    cache[-1].result = cache[-1].state_reference[0].take(*requirement)
-                elif isinstance(requirement, str): # Referring to another rule
-                    cache[-1].result, success = parse_ex(language, requirement, cache[-1].state_reference)
-                if cache[-1].result is None and success == False:
-                    cache.pop()
-                    break
-        else:
-            # Rule pattern matched!
-            result = {"":[]}
-            for number, requirement in enumerate(rule.pattern, 1):
-                target_attributes = [None]
-                if isinstance(requirement, tuple):
-                    target_attributes = requirement[1] if isinstance(requirement[1], list) else [requirement[1]]
-                for target_attribute in target_attributes:
-                    intermediate_result = cache[number].result
-                    attribute_transformer = None
-                    if isinstance(target_attribute, tuple):
-                        target_attribute, attribute_transformer = target_attribute[0], target_attribute[1]
-                    if isinstance(attribute_transformer, str):
-                        if isinstance(intermediate_result, dict):
-                            intermediate_result = intermediate_result.get(attribute_transformer, None)
-                        elif hasattr(intermediate_result, attribute_transformer):
-                            intermediate_result = getattr(intermediate_result, attribute_transformer)
-                    elif callable(attribute_transformer):
-                        intermediate_result = attribute_transformer(intermediate_result)
-                    if target_attribute == None:
-                        set_or_append(result, "", intermediate_result)
-                    elif target_attribute == "":
-                        if isinstance(intermediate_result, dict):
-                            for key, value in intermediate_result.items():
+                    # Rewrite history from the present forwards
+                    history = [
+                        *history[:step_number+1] # history before this step
+                        , Step([history[-1].state_reference[0].fork()], option, actual_destination)
+                    ]
+
+                    # Match according to type of requirement
+                    if isinstance(option, TokenType): # Requires a token of the supplied type
+                        history[-1].result, success = history[-1].state_reference[0].take(option)
+                    elif isinstance(option, str): # Strings require mathcing of other rules
+                        history[-1].result, success = parse_ex(language, option, history[-1].state_reference)
+                    else:
+                        raise Exception("Unknown requirement in rule [%s] of type: %s" % (key, type(option)))
+
+                    # The option did not match
+                    if not success:
+                        history.pop() # Destroy the hypothetical step in history
+                        continue
+
+                # The option matched
+                break
+
+            else:
+                break # If we didn't find one (no inner "break" was activated)
+        else: # The whole rule matched!
+
+            result = {None:[]}
+            for step in history[1:]:
+                for destination in ensure_list(step.destination):
+
+                    # The destination can actually be a tuple "(destination, transformer)"
+                    transformer = None
+                    if isinstance(destination, tuple):
+                        destination, transformer = destination[0], destination[1]
+
+                        # Apply the transformer to result depending on the type of transformer
+                        if isinstance(transformer, str):
+                            if isinstance(step.result, dict):
+                                step.result = step.result.get(transformer, None)
+                            elif hasattr(step.result, transformer):
+                                step.result = getattr(step.result, transformer)
+                        elif callable(transformer):
+                            step.result = transformer(step.result)
+
+                    # Send to destination
+                    if destination == None:
+                        set_or_append(result, None, step.result)
+                    elif destination == "":
+                        if isinstance(step.result, dict):
+                            for key, value in step.result.items():
                                 set_or_append(result, key, value)
                         else:
                             raise Exception("Cannot insert non-dictionary into current object at rule [%s]" % key )
-                    else:
-                        set_or_append(result, target_attribute, intermediate_result)
-            state_reference[0] = cache[-1].state_reference[0] # Override parser state of caller function
-            if rule.target_class == {}:
-                return result, True
-            elif rule.target_class == []:
-                return result[""], True
-            elif rule.target_class == "":
-                return "".join([str(value) for value in result[""]]), True
-            elif callable(rule.target_class):
-                object_result = rule.target_class()
+                    elif destination != False:
+                        set_or_append(result, destination, step.result)
+
+            # Override the parser state of the parent function, so it knows where to continue parsing
+            state_reference[0] = history[-1].state_reference[0]
+
+            # a) Return the dictionary
+            if isinstance(rule.target, dict):
+                if result[None] == []: # If we didn't collect elements without destination, remove the key 'None'
+                    return {key: value for key, value in result.items() if key is not None}, True
+                else:
+                    return result, True
+
+            # b) Return the results that didn't have an explicit destination (as list)
+            elif rule.target == []:
+                return result[None], True
+
+            # c) Return the results that didn't have an explicit destination (converted to string and concatenated)
+            elif rule.target == "":
+                return "".join([str(value) for value in result[None]]), True
+
+            # d) Construct an object of the supplied class and pass the dict as named arguments to constructor
+            elif isclass(rule.target) and "__init__" in vars(rule.target):
+                return rule.target(*result[None], **{key: value for key, value in result.items() if key is not None}), True
+
+            # e) Create an object of the supplied class and let the dictionary set its attributes
+            elif isclass(rule.target):
+                object_result = rule.target()
                 for key, value in result.items():
                     if key:
                         setattr(object_result, key, value)
                 return object_result, True
-            else:
-                return result[""][0] if len(result[""]) == 1 else result[""] or None, True
+
+            # f) Call a function with the resulting dictionary as named parameters
+            elif callable(rule.target):
+                return rule.target(*result[None], **{key: value for key, value in result.items() if key is not None}), True
+
+            # b) Return the result or the results that didn't have an explicit destination (list or plain value)
+            return result[None][0] if len(result[None]) == 1 else result[None] or None, True
+
     return None, False
+
 # Use this
 def parse(language: Language, input: str):
     return parse_ex(language.rules, language.root_rule, [ParserState(tokenize(language.token_class, input))] )[0]
