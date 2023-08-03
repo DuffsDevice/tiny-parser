@@ -3,6 +3,19 @@ from inspect import isclass
 from extendableenum import inheritable_enum
 import re
 
+# Miscellaneous
+def ensure_list(value):
+    return value if isinstance(value, list) else [value]
+def set_or_append(dict, key, value):
+    orig_value = dict.get(key, None)
+    if orig_value is not None:
+        if value is not None:
+            value = ensure_list(value)
+            orig_value = ensure_list(orig_value)
+            dict[key] = [*orig_value, *value]
+    else:
+        dict[key] = value
+
 # Tokenizer
 @inheritable_enum
 class TokenType(Enum):
@@ -51,69 +64,12 @@ class ParserState:
     def fork(self):
         return ParserState(self.token_list, self.current_index)
 
-def ensure_list(value):
-    return value if isinstance(value, list) else [value]
-def set_or_append(dict, key, value):
-    orig_value = dict.get(key, None)
-    if orig_value is not None:
-        if value is not None:
-            value = ensure_list(value)
-            orig_value = ensure_list(orig_value)
-            dict[key] = [*orig_value, *value]
-    else:
-        dict[key] = value
-
-# Abstract Syntax Tree Classes
-class AST: pass
+# Parser
 class Rule:
     def __init__(self, target, *steps ):
         self.target = target
         self.steps = steps if steps else []
-class StandardToken(TokenType):
-    DOUBLE_EQUAL            = r"^=="
-    EXCLAMATION_EQUAL       = r"^!="
-    LESS_EQUAL              = r"^<="
-    GREATER_EQUAL           = r"^>="
-    AND_EQUAL               = r"^&="
-    OR_EQUAL                = r"^\|="
-    XOR_EQUAL               = r"^\^="
-    PLUS_EQUAL              = r"^\+="
-    MINUS_EQUAL             = r"^-="
-    TIMES_EQUAL             = r"^\*="
-    DIVIDES_EQUAL           = r"^/="
-    DOUBLE_AND              = r"^&&"
-    DOUBLE_OR               = r"^\|\|"
-    DOUBLE_PLUS             = r"^\+\+"
-    DOUBLE_MINUS            = r"^--"
-    PLUS                    = r"^\+"
-    MINUS                   = r"^-"
-    TIMES                   = r"^\*"
-    DIVIDES                 = r"^/"
-    POWER                   = r"^\^"
-    LESS                    = r"^<"
-    GREATER                 = r"^>"
-    LEFT_PARENTHESIS        = r"^\("
-    RIGHT_PARENTHESIS       = r"^\)"
-    LEFT_SQUARE_BRACKET     = r"^\["
-    RIGHT_SQUARE_BRACKET    = r"^\]"
-    LEFT_CURLY_BRACKET      = r"^\{"
-    RIGHT_CURLY_BRACKET     = r"^\}"
-    SEMICOLON               = r"^;"
-    COLON                   = r"^:"
-    COMMA                   = r"^,"
-    HAT                     = r"^,"
-    DOT                     = r"^\."
-    IDENTIFIER              = r"^[a-zA-Z_][a-zA-Z0-9_]*\b"
-    NUMBER                  = r'^[1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b'
-    STRING                  = r'^"([^"]|\")+"'
-class Language:
-    def __init__(self, rules, token_class=StandardToken, root_rule="0."):
-        self.rules = rules
-        self.token_class = token_class
-        self.root_rule = root_rule
-
-# Parser
-def parse_ex(language:dict, rule_path: str, state_reference):
+def parse_ex(rules:dict, rule_path: str, state_reference):
     class Step:
         def __init__(self, state_reference, requirement=None, destination=None, result=None):
             self.state_reference = state_reference
@@ -123,10 +79,10 @@ def parse_ex(language:dict, rule_path: str, state_reference):
     history = [Step(state_reference, None, None)] # In order to enable recursion to reference the last step
 
     # Determine viable rules
-    rules = [(key, rule) for key, rule in language.items() if key.startswith(rule_path)]
+    viable_rules = [(key, rule) for key, rule in rules.items() if key.startswith(rule_path)]
 
     # See, if any rule matches
-    for key, rule in rules:
+    for key, rule in viable_rules:
         for step_number, step in enumerate(rule.steps, 1):
 
             # A step can be a tuple "(step, destination)"
@@ -156,7 +112,7 @@ def parse_ex(language:dict, rule_path: str, state_reference):
                     if isinstance(option, TokenType): # Requires a token of the supplied type
                         history[-1].result, success = history[-1].state_reference[0].take(option)
                     elif isinstance(option, str): # Strings require mathcing of other rules
-                        history[-1].result, success = parse_ex(language, option, history[-1].state_reference)
+                        history[-1].result, success = parse_ex(rules, option, history[-1].state_reference)
                     else:
                         raise Exception("Unknown requirement in rule [%s] of type: %s" % (key, type(option)))
 
@@ -241,10 +197,6 @@ def parse_ex(language:dict, rule_path: str, state_reference):
 
     return None, False
 
-# Use this
-def parse(language: Language, input: str):
-    return parse_ex(language.rules, language.root_rule, [ParserState(tokenize(language.token_class, input))] )[0]
-
 # Visualizer
 def print_ast(ast, indent=None):
     if not indent:
@@ -267,3 +219,52 @@ def print_ast(ast, indent=None):
         print("    "*indent + "]")
     else:
         print(ast)
+
+# Abstract Syntax Tree Classes
+class AST: pass
+class StandardToken(TokenType):
+    DOUBLE_EQUAL            = r"^=="
+    EXCLAMATION_EQUAL       = r"^!="
+    LESS_EQUAL              = r"^<="
+    GREATER_EQUAL           = r"^>="
+    AND_EQUAL               = r"^&="
+    OR_EQUAL                = r"^\|="
+    XOR_EQUAL               = r"^\^="
+    PLUS_EQUAL              = r"^\+="
+    MINUS_EQUAL             = r"^-="
+    TIMES_EQUAL             = r"^\*="
+    DIVIDES_EQUAL           = r"^/="
+    DOUBLE_AND              = r"^&&"
+    DOUBLE_OR               = r"^\|\|"
+    DOUBLE_PLUS             = r"^\+\+"
+    DOUBLE_MINUS            = r"^--"
+    PLUS                    = r"^\+"
+    MINUS                   = r"^-"
+    TIMES                   = r"^\*"
+    DIVIDES                 = r"^/"
+    POWER                   = r"^\^"
+    LESS                    = r"^<"
+    GREATER                 = r"^>"
+    LEFT_PARENTHESIS        = r"^\("
+    RIGHT_PARENTHESIS       = r"^\)"
+    LEFT_SQUARE_BRACKET     = r"^\["
+    RIGHT_SQUARE_BRACKET    = r"^\]"
+    LEFT_CURLY_BRACKET      = r"^\{"
+    RIGHT_CURLY_BRACKET     = r"^\}"
+    SEMICOLON               = r"^;"
+    COLON                   = r"^:"
+    COMMA                   = r"^,"
+    HAT                     = r"^,"
+    DOT                     = r"^\."
+    IDENTIFIER              = r"^[a-zA-Z_][a-zA-Z0-9_]*\b"
+    NUMBER                  = r'^[1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b'
+    STRING                  = r'^"([^"]|\")+"'
+class Language:
+    def __init__(self, rules, token_class=StandardToken, root_rule="0."):
+        self.rules = rules
+        self.token_class = token_class
+        self.root_rule = root_rule
+
+# Use this
+def parse(language: Language, input: str):
+    return parse_ex(language.rules, language.root_rule, [ParserState(tokenize(language.token_class, input))] )[0]
