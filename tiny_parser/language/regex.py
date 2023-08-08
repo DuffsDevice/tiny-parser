@@ -26,7 +26,7 @@ class RegexToken(TokenType):
     PLUS_MULTIPLIER         = r"^\+"
     OPTION                  = r"^\|"
     BACKSLASH               = r"^\\."
-    ESCAPED_CHARACTER       = r"^\\."
+    ESCAPED_CHARACTER       = r"^\\(?P<character>.)"
     COMMA                   = r"^,"
     HAT                     = r"^\^"
     DOLLAR                  = r"^\$"
@@ -50,11 +50,11 @@ regex_grammar = {
     "20.3": Rule( SpecificTimes , ("30.", "parts") , RegexToken.CURLY_OPEN , ("21.", "times") , RegexToken.CURLY_CLOSE ),
     "20.4": Rule( RangeTimes , ("30.", "parts") , RegexToken.CURLY_OPEN , ("21.", "minimum") , RegexToken.COMMA , ("21.", "maximum") , RegexToken.CURLY_CLOSE ),
     "20.5": Rule( None , "30." ),
-    "21.1": Rule( "" , (RegexToken.DIGIT, (None, "content")) , "21." ),
+    "21.1": Rule( "" , (RegexToken.DIGIT, (None, "value")) , "21." ),
     "21.2": Rule( None ),
 
     "30.1": Rule( Group , RegexToken.GROUP_OPEN , RegexToken.GROUP_CLOSE ),
-    "30.2": Rule( Group , RegexToken.GROUP_OPEN , ("0.", "content") , RegexToken.GROUP_CLOSE ),
+    "30.2": Rule( Group , RegexToken.GROUP_OPEN , ("0.", "value") , RegexToken.GROUP_CLOSE ),
     "30.3": Rule( None , "40." ),
 
     "40.1": Rule( CharacterSet , RegexToken.LIST_OPEN , ("41.", "includes") , RegexToken.LIST_CLOSE ),
@@ -65,25 +65,25 @@ regex_grammar = {
     "41.3": Rule( [] ),
     "42.1": Rule( CharacterRange , ("43.", "from") , RegexToken.DASH , ("43.", "to") ),
     "42.2": Rule( [] , "43." ),
-    "43.1": Rule( Character , (RegexToken.GROUP_OPEN, ("value", "content")) ),
-    "43.2": Rule( Character , (RegexToken.GROUP_CLOSE, ("value", "content")) ),
-    "43.3": Rule( Character , (RegexToken.LIST_OPEN, ("value", "content")) ),
-    "43.4": Rule( Character , (RegexToken.CURLY_OPEN, ("value", "content")) ),
-    "43.5": Rule( Character , (RegexToken.CURLY_CLOSE, ("value", "content")) ),
-    "43.6": Rule( Character , (RegexToken.STAR_MULTIPLIER, ("value", "content")) ),
-    "43.7": Rule( Character , (RegexToken.PLUS_MULTIPLIER, ("value", "content")) ),
-    "43.8": Rule( Character , (RegexToken.OPTION, ("value", "content")) ),
-    "43.9": Rule( Character , (RegexToken.COMMA, ("value", "content")) ),
-    "43.10": Rule( Character , (RegexToken.DIGIT, ("value", "content")) ),
-    "43.11": Rule( Character , (RegexToken.GENERAL_CHARACTER, ("value", "content")) ),
-    "43.12": Rule( EscapeCharacter , (RegexToken.ESCAPED_CHARACTER, ("value", lambda x: x.content[1:])) ),
+    "43.1": Rule( Character , (RegexToken.GROUP_OPEN, ("value", "value")) ),
+    "43.2": Rule( Character , (RegexToken.GROUP_CLOSE, ("value", "value")) ),
+    "43.3": Rule( Character , (RegexToken.LIST_OPEN, ("value", "value")) ),
+    "43.4": Rule( Character , (RegexToken.CURLY_OPEN, ("value", "value")) ),
+    "43.5": Rule( Character , (RegexToken.CURLY_CLOSE, ("value", "value")) ),
+    "43.6": Rule( Character , (RegexToken.STAR_MULTIPLIER, ("value", "value")) ),
+    "43.7": Rule( Character , (RegexToken.PLUS_MULTIPLIER, ("value", "value")) ),
+    "43.8": Rule( Character , (RegexToken.OPTION, ("value", "value")) ),
+    "43.9": Rule( Character , (RegexToken.COMMA, ("value", "value")) ),
+    "43.10": Rule( Character , (RegexToken.DIGIT, ("value", "value")) ),
+    "43.11": Rule( Character , (RegexToken.GENERAL_CHARACTER, ("value", "value")) ),
+    "43.12": Rule( EscapeCharacter , (RegexToken.ESCAPED_CHARACTER, ("value", "character")) ),
 
-    "50.2": Rule( Character , (RegexToken.COMMA, ("value", "content")) ),
-    "50.1": Rule( Character , (RegexToken.DASH, ("value", "content")) ),
-    "50.3": Rule( Character , (RegexToken.DIGIT, ("value", "content")) ),
-    "50.4": Rule( StartToken , (RegexToken.HAT, ("value", "content")) ),
-    "50.5": Rule( EndToken , (RegexToken.DOLLAR, ("value", "content")) ),
-    "50.6": Rule( Character , (RegexToken.GENERAL_CHARACTER, ("value", "content")) ),
-    "50.7": Rule( EscapeCharacter , (RegexToken.ESCAPED_CHARACTER, ("value", lambda x: x.content[1:])) ),
+    "50.2": Rule( Character , (RegexToken.COMMA, ("value", "value")) ),
+    "50.1": Rule( Character , (RegexToken.DASH, ("value", "value")) ),
+    "50.3": Rule( Character , (RegexToken.DIGIT, ("value", "value")) ),
+    "50.4": Rule( StartToken , (RegexToken.HAT, ("value", "value")) ),
+    "50.5": Rule( EndToken , (RegexToken.DOLLAR, ("value", "value")) ),
+    "50.6": Rule( Character , (RegexToken.GENERAL_CHARACTER, ("value", "value")) ),
+    "50.7": Rule( EscapeCharacter , (RegexToken.ESCAPED_CHARACTER, ("value", "character")) ),
 }
 regex = Language(regex_grammar, RegexToken)

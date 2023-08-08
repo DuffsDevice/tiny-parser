@@ -23,10 +23,13 @@ class TokenType(Enum):
     def strip_space_before(): return " "
     def __init__(self, pattern):
         self.pattern = re.compile(pattern)
+    def __call__(self, *args, **kwargs):
+        return Token(self, *args, **kwargs)
 class Token:
-    def __init__(self, type: TokenType, content: str, space_before: str):
+    def __init__(self, type: TokenType, value=None, space_before=None):
         self.type = type
-        self.content = content
+        self.verbatim = self.value = value
+        self.space_before = space_before
 def tokenize(token_class, input: str):
     result = []
     space_before = None
@@ -38,6 +41,8 @@ def tokenize(token_class, input: str):
         for token_type in token_class:
             if match := token_type.pattern.match(input):
                 result.append(Token(token_type, match.group(), space_before))
+                for key, value in match.groupdict().items():
+                    setattr(result[-1], key, value) # Add all named groups to the token as attributes
                 input = input[len(match.group()):]
                 break
         else:
@@ -55,11 +60,21 @@ class ParserState:
     @property
     def current_token(self):
         return self.token_list[self.current_index] if self.current_index < len(self.token_list) else None
-    def take(self, token_type):
+    def take_type(self, token_type: TokenType):
         current_token = self.current_token
         if current_token and current_token.type == token_type:
             self.current_index += 1
             return current_token, True
+        return None, False
+    def take_token(self, token: Token):
+        current_token, success = self.take_type(token.type)
+        if success:
+            if isinstance(token.value, str) and current_token.value == token.value:
+                return current_token, True
+            elif isinstance(token.value, re.Pattern) and token.value.match(current_token.value):
+                return current_token, True
+            else:
+                self.current_index -= 1
         return None, False
     def fork(self):
         return ParserState(self.token_list, self.current_index)
@@ -110,8 +125,10 @@ def parse_ex(rules:dict, rule_path: str, state_reference):
 
                     # Match according to type of requirement
                     if isinstance(option, TokenType): # Requires a token of the supplied type
-                        history[-1].result, success = history[-1].state_reference[0].take(option)
-                    elif isinstance(option, str): # Strings require mathcing of other rules
+                        history[-1].result, success = history[-1].state_reference[0].take_type(option)
+                    elif isinstance(option, Token): # Requires a token with the supplied type
+                        history[-1].result, success = history[-1].state_reference[0].take_token(option)
+                    elif isinstance(option, str): # Strings require matching of other rules
                         history[-1].result, success = parse_ex(rules, option, history[-1].state_reference)
                     else:
                         raise Exception("Unknown requirement in rule [%s] of type: %s" % (key, type(option)))
@@ -155,6 +172,8 @@ def parse_ex(rules:dict, rule_path: str, state_reference):
                                 set_or_append(result, key, value)
                         else:
                             raise Exception("Cannot insert non-dictionary into current object at rule [%s]" % key )
+                    elif isinstance(destination, int): # Take the nth result in the 'None' entry
+                        set_or_append(result, result[None][destination], step.result)
                     elif destination != False:
                         set_or_append(result, destination, step.result)
 
@@ -163,7 +182,7 @@ def parse_ex(rules:dict, rule_path: str, state_reference):
 
             # a) Return the dictionary
             if isinstance(rule.target, dict):
-                if result[None] == []: # If we didn't collect elements without destination, remove the key 'None'
+                if result[None] == [] or (None not in rule.target): # If we didn't collect elements without destination, remove the key 'None'
                     return {key: value for key, value in result.items() if key is not None}, True
                 else:
                     return result, True
@@ -176,11 +195,15 @@ def parse_ex(rules:dict, rule_path: str, state_reference):
             elif rule.target == "":
                 return "".join([str(value) for value in result[None]]), True
 
-            # d) Construct an object of the supplied class and pass the dict as named arguments to constructor
+            # d) Return the field with the supplied name
+            elif isinstance(rule.target, str):
+                return result.get(rule.target, None), True
+
+            # e) Construct an object of the supplied class and pass the dict as named arguments to constructor
             elif isclass(rule.target) and "__init__" in vars(rule.target):
                 return rule.target(*result[None], **{key: value for key, value in result.items() if key is not None}), True
 
-            # e) Create an object of the supplied class and let the dictionary set its attributes
+            # f) Create an object of the supplied class and let the dictionary set its attributes
             elif isclass(rule.target):
                 object_result = rule.target()
                 for key, value in result.items():
@@ -188,11 +211,11 @@ def parse_ex(rules:dict, rule_path: str, state_reference):
                         setattr(object_result, key, value)
                 return object_result, True
 
-            # f) Call a function with the resulting dictionary as named parameters
+            # g) Call a function with the resulting dictionary as named parameters
             elif callable(rule.target):
                 return rule.target(*result[None], **{key: value for key, value in result.items() if key is not None}), True
 
-            # b) Return the result or the results that didn't have an explicit destination (list or plain value)
+            # h) Return the result or the results that didn't have an explicit destination (list or plain value)
             return result[None][0] if len(result[None]) == 1 else result[None] or None, True
 
     return None, False
@@ -203,7 +226,7 @@ def print_ast(ast, indent=None):
         print("<root> = ", end="")
         indent = 0
     if isinstance(ast, Token):
-        print( "[" + str(ast.type) + "] = '" + ast.content + "'")
+        print( "[" + str(ast.type) + "] = '" + ast.value + "'")
     elif isinstance(ast, AST):
         print( "[" + ast.__class__.__name__ + "]")
         for attribute, value in vars(ast).items():
@@ -217,6 +240,8 @@ def print_ast(ast, indent=None):
             print("    "*indent + "    ." + str(number) + " = ", end="")
             print_ast(value, indent+1)
         print("    "*indent + "]")
+    elif isinstance(ast, str):
+        print('"%s"' % ast)
     else:
         print(ast)
 
@@ -257,8 +282,8 @@ class StandardToken(TokenType):
     HAT                     = r"^,"
     DOT                     = r"^\."
     IDENTIFIER              = r"^[a-zA-Z_][a-zA-Z0-9_]*\b"
-    NUMBER                  = r'^[1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b'
-    STRING                  = r'^"([^"]|\")+"'
+    NUMBER                  = r'^(\+|-)?([1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b)'
+    STRING                  = r'^"(?P<value>([^"]|\\")+)"'
 class Language:
     def __init__(self, rules, token_class=StandardToken, root_rule="0."):
         self.rules = rules
@@ -267,4 +292,6 @@ class Language:
 
 # Use this
 def parse(language: Language, input: str):
-    return parse_ex(language.rules, language.root_rule, [ParserState(tokenize(language.token_class, input))] )[0]
+    parser_state = [ParserState(tokenize(language.token_class, input))]
+    result = parse_ex(language.rules, language.root_rule, parser_state )[0]
+    return None if parser_state[0].current_token else result
