@@ -15,41 +15,49 @@ def set_or_append(dict, key, value):
             dict[key] = [*orig_value, *value]
     else:
         dict[key] = value
+def take_from_input(input, count, line, column, regex=re.compile(r"\r\n|\r|\n")):
+    column += count
+    for match in regex.finditer(input, endpos=count):
+        line += 1
+        column = count - match.end() + 1
+    return input[:count], input[count:], line, column
 
 # Tokenizer
 @inheritable_enum
 class TokenType(Enum):
-    @staticmethod
-    def strip_space_before(): return " "
     def __init__(self, pattern):
         self.pattern = re.compile(pattern)
     def __call__(self, *args, **kwargs):
         return Token(self, *args, **kwargs)
 class Token:
-    def __init__(self, type: TokenType, value=None, space_before=None):
+    def __init__(self, type: TokenType, value=None, space_before=None, line=None, column=None):
         self.type = type
         self.verbatim = self.value = value
         self.space_before = space_before
-def tokenize(token_class, input: str):
+        self.line = line
+        self.column = column
+def tokenize(token_class, input: str, strip_whitespaces=None):
     result = []
     space_before = None
-    spaces = token_class.strip_space_before()
-    if spaces:
-        new_input = input.lstrip(spaces)
-        space_before, input = input[:len(input)-len(new_input)], new_input
+    line = 1
+    column = 1
+    if strip_whitespaces:
+        new_input = input.lstrip(strip_whitespaces)
+        space_before, input, line, column = take_from_input(input, len(input)-len(new_input), line, column)
     while input:
         for token_type in token_class:
             if match := token_type.pattern.match(input):
-                result.append(Token(token_type, match.group(), space_before))
+                token = Token(token_type, match.group(), space_before, line, column)
+                _, input, line, column = take_from_input(input, match.end(), line, column)
                 for key, value in match.groupdict().items():
-                    setattr(result[-1], key, value) # Add all named groups to the token as attributes
-                input = input[len(match.group()):]
+                    setattr(token, key, value) # Add all named groups to the token as attributes
+                result.append(token)
                 break
         else:
             raise Exception("No Token matched at: %.7s..." % input)
-        if spaces:
-            new_input = input.lstrip(spaces)
-            space_before, input = input[:len(input)-len(new_input)], new_input
+        if strip_whitespaces:
+            new_input = input.lstrip(strip_whitespaces)
+            space_before, input, line, column = take_from_input(input, len(input)-len(new_input), line, column)
     return result
 
 # Parser State
@@ -80,10 +88,6 @@ class ParserState:
         return ParserState(self.token_list, self.current_index)
 
 # Parser
-class Rule:
-    def __init__(self, target, *steps ):
-        self.target = target
-        self.steps = steps if steps else []
 def parse_ex(rules:dict, rule_path: str, state_reference):
     class Step:
         def __init__(self, state_reference, requirement=None, destination=None, result=None):
@@ -98,7 +102,11 @@ def parse_ex(rules:dict, rule_path: str, state_reference):
 
     # See, if any rule matches
     for key, rule in viable_rules:
-        for step_number, step in enumerate(rule.steps, 1):
+
+        # rule is tuple "(target, steps...)" or just "target"
+        target, *steps = rule if isinstance(rule, tuple) else (rule,)
+
+        for step_number, step in enumerate(steps, 1):
 
             # A step can be a tuple "(step, destination)"
             destination = None
@@ -181,39 +189,39 @@ def parse_ex(rules:dict, rule_path: str, state_reference):
             state_reference[0] = history[-1].state_reference[0]
 
             # a) Return the dictionary
-            if isinstance(rule.target, dict):
-                if result[None] == [] or (None not in rule.target): # If we didn't collect elements without destination, remove the key 'None'
+            if isinstance(target, dict):
+                if result[None] == [] or (None not in target): # If we didn't collect elements without destination, remove the key 'None'
                     return {key: value for key, value in result.items() if key is not None}, True
                 else:
                     return result, True
 
             # b) Return the results that didn't have an explicit destination (as list)
-            elif rule.target == []:
+            elif target == []:
                 return result[None], True
 
             # c) Return the results that didn't have an explicit destination (converted to string and concatenated)
-            elif rule.target == "":
+            elif target == "":
                 return "".join([str(value) for value in result[None]]), True
 
             # d) Return the field with the supplied name
-            elif isinstance(rule.target, str):
-                return result.get(rule.target, None), True
+            elif isinstance(target, str):
+                return result.get(target, None), True
 
             # e) Construct an object of the supplied class and pass the dict as named arguments to constructor
-            elif isclass(rule.target) and "__init__" in vars(rule.target):
-                return rule.target(*result[None], **{key: value for key, value in result.items() if key is not None}), True
+            elif isclass(target) and "__init__" in vars(target):
+                return target(*result[None], **{key: value for key, value in result.items() if key is not None}), True
 
             # f) Create an object of the supplied class and let the dictionary set its attributes
-            elif isclass(rule.target):
-                object_result = rule.target()
+            elif isclass(target):
+                object_result = target()
                 for key, value in result.items():
                     if key:
                         setattr(object_result, key, value)
                 return object_result, True
 
             # g) Call a function with the resulting dictionary as named parameters
-            elif callable(rule.target):
-                return rule.target(*result[None], **{key: value for key, value in result.items() if key is not None}), True
+            elif callable(target):
+                return target(*result[None], **{key: value for key, value in result.items() if key is not None}), True
 
             # h) Return the result or the results that didn't have an explicit destination (list or plain value)
             return result[None][0] if len(result[None]) == 1 else result[None] or None, True
@@ -248,6 +256,7 @@ def print_ast(ast, indent=None):
 # Abstract Syntax Tree Classes
 class AST: pass
 class StandardToken(TokenType):
+    NEWLINE                 = r"^\r\n|\r|\n"
     DOUBLE_EQUAL            = r"^=="
     EXCLAMATION_EQUAL       = r"^!="
     LESS_EQUAL              = r"^<="
@@ -285,13 +294,14 @@ class StandardToken(TokenType):
     NUMBER                  = r'^(\+|-)?([1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b)'
     STRING                  = r'^"(?P<value>([^"]|\\")+)"'
 class Language:
-    def __init__(self, rules, token_class=StandardToken, root_rule="0."):
+    def __init__(self, rules, token_class=StandardToken, root_rule="0.", strip_whitespaces=" \t\r\n"):
         self.rules = rules
         self.token_class = token_class
         self.root_rule = root_rule
+        self.strip_whitespaces = strip_whitespaces
 
 # Use this
 def parse(language: Language, input: str):
-    parser_state = [ParserState(tokenize(language.token_class, input))]
+    parser_state = [ParserState(tokenize(language.token_class, input, language.strip_whitespaces))]
     result = parse_ex(language.rules, language.root_rule, parser_state )[0]
     return None if parser_state[0].current_token else result
