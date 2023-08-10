@@ -28,8 +28,14 @@ class TokenType(Enum):
     def __init__(self, pattern):
         self.pattern = re.compile(pattern)
     def __call__(self, *args, **kwargs):
-        return Token(self, *args, **kwargs)
-class Token:
+        return InputToken(self, *args, **kwargs)
+    @classmethod
+    def exactly(cls, value):
+        for token_type in cls:
+            if token_type.pattern.match(value):
+                return token_type(value)
+        raise Exception("The string %s does not correspond to any token type in Enum %s." % (value, cls))
+class InputToken:
     def __init__(self, type: TokenType, value=None, space_before=None, line=None, column=None):
         self.type = type
         self.verbatim = self.value = value
@@ -47,7 +53,7 @@ def tokenize(token_class, input: str, strip_whitespaces=None):
     while input:
         for token_type in token_class:
             if match := token_type.pattern.match(input):
-                token = Token(token_type, match.group(), space_before, line, column)
+                token = InputToken(token_type, match.group(), space_before, line, column)
                 _, input, line, column = take_from_input(input, match.end(), line, column)
                 for key, value in match.groupdict().items():
                     setattr(token, key, value) # Add all named groups to the token as attributes
@@ -74,7 +80,7 @@ class ParserState:
             self.current_index += 1
             return current_token, True
         return None, False
-    def take_token(self, token: Token):
+    def take_token(self, token: InputToken):
         current_token, success = self.take_type(token.type)
         if success:
             if isinstance(token.value, str) and current_token.value == token.value:
@@ -134,7 +140,7 @@ def parse_ex(rules:dict, rule_path: str, state_reference):
                     # Match according to type of requirement
                     if isinstance(option, TokenType): # Requires a token of the supplied type
                         history[-1].result, success = history[-1].state_reference[0].take_type(option)
-                    elif isinstance(option, Token): # Requires a token with the supplied type
+                    elif isinstance(option, InputToken): # Requires a token with the supplied type
                         history[-1].result, success = history[-1].state_reference[0].take_token(option)
                     elif isinstance(option, str): # Strings require matching of other rules
                         history[-1].result, success = parse_ex(rules, option, history[-1].state_reference)
@@ -233,7 +239,7 @@ def print_ast(ast, indent=None):
     if not indent:
         print("<root> = ", end="")
         indent = 0
-    if isinstance(ast, Token):
+    if isinstance(ast, InputToken):
         print( "[" + str(ast.type) + "] = '" + ast.value + "'")
     elif isinstance(ast, AST):
         print( "[" + ast.__class__.__name__ + "]")
