@@ -91,7 +91,16 @@ You can compare this process to the process of identifying the "building blocks"
 You can probably already see, how this eases the further comprehension of some input string.
 
 tiny-parser by default employs a basic tokenization that will suffice for many occasions.
-It's defined by the enum `tinyparser.StandardToken`, deriving from the class `tinyparser.TokenType`:
+It's defined by the enum `tinyparser.Token`, deriving from the class `tinyparser.TokenType`.
+
+This basic tokenization will allow you to match certain tokens, just by passing the enum member of the token type you'd like to match.
+For example the rule :
+
+```python
+"1": (None, StandardToken)
+```
+
+
 
 | Token Name  | Regular Expression  |
 | ----------- | ------------------ |
@@ -127,9 +136,8 @@ It's defined by the enum `tinyparser.StandardToken`, deriving from the class `ti
 | SEMICOLON | ; |
 | COLON | : |
 | COMMA | , |
-| HAT | ^ |
+| HAT | \\^ |
 | DOT | \\. |
 | IDENTIFIER | [a-zA-Z_][a-zA-Z0-9_]*\b |
 | NUMBER | (\\+\|-)?([1-9][0-9]*(\\.[0-9]*)?\\b\|\\.[0-9]+\\b\|0\\b) |
 | STRING | "(?P<value>([^"]\|\\\\")+)"
-
