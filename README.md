@@ -37,18 +37,37 @@ print(tinyparser.parse(json, '{"Hello": ["test", 4, {"what":30}]}'))
 
 ## Documentation
 
-### 1. The Language Dictionary
-The first constructor argument to the class `Language` is a python dictionary containing all the language rules.
-In principle, you can name your rules the way you'd like. For most cases, you'd probably want a hierachical key structure.
-By doing this, you can reference groups of rules, as tiny-parser will match every rule that starts with a certain prefix.
+### The Grammar Dictionary
+The first constructor argument to the class `tinyparser.Language` is the grammar - a python dictionary containing all grammar rules.
+Each dictionary key maps a specific identification to a rule definition.
 
-For example: a rule reference of "1." will match all rules with a dictionary key starting with "1.", such as "1.0", "1.1.1" or "1.1.2".
+```python
+grammmar = {
+    "0.1": (foo, bar)
+    , "1.1": (faz, baz)
+    , "1.2": (far, boo)
+    # And so on...
+}
+```
+
+#### Rule Identifications
+In principle, you can name your rules the way you like. For most cases however, you'll want a hierachical key structure.
+By doing this, you can reference groups of rules and thus enable disjunctions.
+This is, because tiny-parser rule references will match every rule that starts with a certain prefix.
+For example, a rule reference of "1." will match all rules with a dictionary key starting with "1.", such as "1.0", "1.1.1" or "1.1.2".
 
 You would also be allowed to use words for the rule identifications, but keep in mind:
 longer identifications take longer to compare (if speed should be an issue).
 
-### 2. Rules
-Rules all have the form of a tuple `(target, steps...)`. If a rule is specified to match _nothing_, you may also just specify `target`.
-The types of targets one can specify are going to be explained in one of the next sections.
+### Rule Definitions
+Rule definitions are of the form `(target, steps...)` (a tuple containing the definition arguments).
+If a rule is defined to match _nothing_ (the empty string), you may also just specify `target` (not using a tuple).
+
+#### Steps
+The precise types of targets one can specify are going to be explained in one of the next sections.
 This chapter will be all about the matching steps, i.e. _what_ you can match.
 
+Usually, language grammars come in different formats: BNF, EBNF, graphical control flow etc.
+Common to all of them is, what they are made of:
+a) Tokens (i.e. string content matching some part of the input), e.g. "[", "&&" or "const", and
+b) References to other rules.
