@@ -255,7 +255,7 @@ def print_ast(ast, indent=None):
 
 # Abstract Syntax Tree Classes
 class AST: pass
-class StandardToken(TokenType):
+class Token(TokenType):
     NEWLINE                 = r"^\r\n|\r|\n"
     DOUBLE_EQUAL            = r"^=="
     EXCLAMATION_EQUAL       = r"^!="
@@ -294,7 +294,7 @@ class StandardToken(TokenType):
     NUMBER                  = r'^(\+|-)?([1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b)'
     STRING                  = r'^"(?P<value>([^"]|\\")+)"'
 class Language:
-    def __init__(self, rules, token_class=StandardToken, root_rule="0.", strip_whitespaces=" \t\r\n"):
+    def __init__(self, rules, token_class=Token, root_rule="0.", strip_whitespaces=" \t\r\n"):
         self.rules = rules
         self.token_class = token_class
         self.root_rule = root_rule
