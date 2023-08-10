@@ -69,5 +69,67 @@ This chapter will be all about the matching steps, i.e. _what_ you can match.
 
 Usually, language grammars come in different formats: BNF, EBNF, graphical control flow etc.
 Common to all of them is, what they are made of:
-a) Tokens (i.e. string content matching some part of the input), e.g. "[", "&&" or "const", and
-b) References to other rules.
+1. Tokens (i.e. string content matching some part of the input), e.g. "[", "&&" or "const", and
+2. References to other rules.
+
+Essentially, the "steps" you will pass as arguments to the definition of each rule will mostly consist of these two things,
+references to other rules and tokens that you want to read from the input.
+
+#### Parsing Tokens
+tiny-parser will parse your input in two stages: 1. tokenization, 2. rule matching.
+Tokenization is a common preparation step in parsing. Most compilers and source code analysis tools do this.
+Breaking up the input into it's atomic components (tokens) happens, because it eases the process of rule matching immensely.
+
+Tokenization happens linearly from the beginning of the input to the end.
+You can compare this process to the process of identifying the "building blocks" of written english within a given sentence:
+1. **words** (made of characters of the english alphabet, terminated by everything that's not of the english alphabet),
+2. **dots**,
+3. **dashes**,
+4. **parentheses**,
+5. **numbers** (starting with a digit, terminated by everything thats neither a number nor a decimal dot).
+
+You can probably already see, how this eases the further comprehension of some input string.
+
+tiny-parser by default employs a basic tokenization that will suffice for many occasions.
+It's defined by the enum `tinyparser.StandardToken`, deriving from the class `tinyparser.TokenType`:
+
+| Token Name  | Regular Expression  |
+| ----------- | ------------------ |
+| NEWLINE | \\r\\n\|\\r\|\\n |
+| DOUBLE_EQUAL | == |
+| EXCLAMATION_EQUAL | != |
+| LESS_EQUAL | <= |
+| GREATER_EQUAL | >= |
+| AND_EQUAL | &= |
+| OR_EQUAL | \\\|= |
+| XOR_EQUAL | \^= |
+| PLUS_EQUAL | \+= |
+| MINUS_EQUAL | -= |
+| TIMES_EQUAL | \*= |
+| DIVIDES_EQUAL | /= |
+| DOUBLE_AND | && |
+| DOUBLE_OR | \\\|\\\| |
+| DOUBLE_PLUS | \\+\\+ |
+| DOUBLE_MINUS | -- |
+| PLUS | \\+ |
+| MINUS | - |
+| TIMES | \* |
+| DIVIDES | / |
+| POWER | \\^ |
+| LESS | < |
+| GREATER | > |
+| LEFT_PARENTHESIS | \\( |
+| RIGHT_PARENTHESIS | \\) |
+| LEFT_SQUARE_BRACKET | \\[ |
+| RIGHT_SQUARE_BRACKET | \\] |
+| LEFT_CURLY_BRACKET | \\{ |
+| RIGHT_CURLY_BRACKET | \\} |
+| SEMICOLON | ; |
+| COLON | : |
+| COMMA | , |
+| HAT | ^ |
+| DOT | \\. |
+| IDENTIFIER | [a-zA-Z_][a-zA-Z0-9_]*\b |
+| NUMBER | (\\+\|-)?([1-9][0-9]*(\\.[0-9]*)?\\b\|\\.[0-9]+\\b\|0\\b) |
+| STRING | "(?P<value>([^"]\|\\\\")+)"
+
