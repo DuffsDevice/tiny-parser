@@ -35,9 +35,9 @@ print(tinyparser.parse(json, '{"Hello": ["test", 4, {"what":30}]}'))
 # Output: {'Hello': ['test', 4, {'what': 30}]}
 ```
 
-## Documentation
+# Documentation
 
-### The Grammar Dictionary
+## Specifying the Grammar
 The first constructor argument to the class `tinyparser.Language` is the grammar - a python dictionary containing all grammar rules.
 Each dictionary key maps a specific identification to a rule definition.
 
@@ -50,7 +50,7 @@ grammmar = {
 }
 ```
 
-#### Rule Identifications
+### Rule Identifications
 In principle, you can name your rules the way you like. For most cases however, you'll want a hierachical key structure.
 By doing this, you can reference groups of rules and thus enable disjunctions.
 This is, because tiny-parser rule references will match every rule that starts with a certain prefix.
@@ -59,11 +59,11 @@ For example, a rule reference of "1." will match all rules with a dictionary key
 You would also be allowed to use words for the rule identifications, but keep in mind:
 longer identifications take longer to compare (if speed should be an issue).
 
-### Rule Definitions
+## Rule Definitions
 Rule definitions are of the form `(target, steps...)` (a tuple containing the definition arguments).
 If a rule is defined to match _nothing_ (the empty string), you may also just specify `target` (not using a tuple).
 
-#### Steps
+### Steps
 The precise types of targets one can specify are going to be explained in one of the next sections.
 This chapter will be all about the matching steps, i.e. _what_ you can match.
 
@@ -75,7 +75,7 @@ Common to all of them is, what they are made of:
 Essentially, the "steps" you will pass as arguments to the definition of each rule will mostly consist of these two things,
 references to other rules and tokens that you want to read from the input.
 
-#### Parsing Tokens
+### Parsing Tokens
 tiny-parser will parse your input in two stages: 1. tokenization, 2. rule matching.
 Tokenization is a common preparation step in parsing. Most compilers and source code analysis tools do this.
 Breaking up the input into it's atomic components (tokens) happens, because it eases the process of rule matching immensely.
@@ -97,10 +97,18 @@ This basic tokenization will allow you to match certain tokens, just by passing 
 For example the rule :
 
 ```python
-"1": (None, Token)
+"1": (None, Token.LEFT_PARENTHESIS, Token.RIGHT_PARENTHESIS)
+```
+has two steps that together match "()", even with whitespaces in between "(  )".
+
+### Matching exact tokens
+In some cases, merely specifying thy type of token that you want to match is not precise enough.
+To match a token with specific content, for example the identifier `func`, you can do this with the function `exactly`:
+```python
+"1": (None, Token.exactly("func"), Token.IDENTIFIER)
 ```
 
-
+### Complete list of Standard Tokens
 
 | Token Name  | Regular Expression  |
 | ----------- | ------------------ |
