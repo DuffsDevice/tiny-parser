@@ -14,17 +14,17 @@ The language definition using tiny-parser looks like this:
 from tinyparser import Rule, Token, Language
 
 json = Language({
-    "0.1": (eval, (Token.NUMBER, (None, "value"))),
-    "0.2": (None, (Token.STRING, (None, "value"))),
-    "0.3": ("#", Token.LEFT_SQUARE_BRACKET, ("1.", "#"), Token.RIGHT_SQUARE_BRACKET),
-    "0.4": ("#", Token.LEFT_CURLY_BRACKET, ("2.", "#"), Token.RIGHT_CURLY_BRACKET),
-    "1.1.1": ([], "0.", (Token.COMMA, []), "1.1."),
-    "1.1.2": ([], "0."),
-    "1.2": [],
-    "2.1.1": ({}, ("3.", ""), Token.COMMA, ("2.1.", "")),
-    "2.1.2": ({}, ("3.", "")),
-    "2.2": {},
-    "3.0": ({}, (Token.STRING, (None, "value")), Token.COLON, ("0.", (0, "value"))),
+    "root.number.": (eval, (Token.NUMBER, (None, "value"))),
+    "root.string.": (None, (Token.STRING, (None, "value"))),
+    "root.list.": ("#", Token.LEFT_SQUARE_BRACKET, ("list.", "#"), Token.RIGHT_SQUARE_BRACKET),
+    "root.object.": ("#", Token.LEFT_CURLY_BRACKET, ("object.", "#"), Token.RIGHT_CURLY_BRACKET),
+    "list.nonempty.multiple.": ([], "root.", (Token.COMMA, []), "list.nonempty."),
+    "list.nonempty.single.": ([], "root."),
+    "list.empty.": [],
+    "object.nonempty.multiple.": ({}, ("attribute.", ""), Token.COMMA, ("object.nonempty.", "")),
+    "object.nonempty.single.": ({}, ("attribute.", "")),
+    "object.empty.": {},
+    "attribute.": ({}, (Token.STRING, (None, "value")), Token.COLON, ("root.", (0, "value"))),
 })
 ```
 That's it. Nothing more.
@@ -35,17 +35,18 @@ print(tinyparser.parse(json, '{"Hello": ["test", 4, {"what":30}]}'))
 # Output: {'Hello': ['test', 4, {'what': 30}]}
 ```
 
-# Documentation
+# 1. Documentation
 
-## Specifying the Grammar
+## 1.1   Specifying the Grammar
 The first constructor argument to the class `tinyparser.Language` is the grammar - a python dictionary containing all grammar rules.
 Each dictionary key maps a specific identification to a rule definition.
 
 ```python
 grammmar = {
-    "0.1": (foo, bar)
-    , "1.1": (faz, baz)
-    , "1.2": (far, boo)
+    "root.option-A": ["number."]
+    "root.option-B": ["string."]
+    , "number.": [Token.NUMBER]
+    , "string.": [Token.STRING]
     # And so on...
 }
 ```
@@ -54,23 +55,23 @@ grammmar = {
 In principle, you can name your rules the way you like. For most cases however, you'll want a hierachical key structure.
 By doing this, you can reference groups of rules and thus enable disjunctions.
 This is, because tiny-parser rule references will match every rule that starts with a certain prefix.
-For example, a rule reference of "1." will match all rules with a dictionary key starting with "1.", such as "1.0", "1.1.1" or "1.1.2".
+For example, a rule reference of `"expression."` will match all rules with a dictionary key starting with `expression.` , such as `expression.empty.` , `expression.nonempty.single.` or `expression.nonemtpy.multiple.` .
 
-You would also be allowed to use words for the rule identifications, but keep in mind:
-longer identifications take longer to compare (if speed should be an issue).
+By convention, all rule identifications should end in the separation character you use (in our case `.`). This is, because references should not have to care, if they reference a group of rules or a single rule (separation of _Interface_ from _Implementation_).
 
-## Rule Definitions
-Rule definitions are of the form `(target, steps...)` (a tuple containing the definition arguments).
-If a rule is defined to match _nothing_ (the empty string), you may also just specify `target` (not using a tuple).
+**Note:** For educational purposes, all rule identifications are words. When you ship your code and/or  parsing speed is needed, numbers would suite the purpose just as well, but are quicker in parsing time. That is, the shorter your identifications, the quicker tiny-parser can resolve each reference.
+
+## 1.2 Rule Definitions
+Rule definitions are either of the form `[steps...]` or `(target, steps...)`.
+If a rule is defined to match _nothing_ (the empty string) and therefore has no steps, you may just specify `target` (neither wrapped inside a tuple nor list). I.e., you may as well pass `None` .
 
 ### Steps
-The precise types of targets one can specify are going to be explained in one of the next sections.
 This chapter will be all about the matching steps, i.e. _what_ you can match.
 
 Usually, language grammars come in different formats: BNF, EBNF, graphical control flow etc.
 Common to all of them is, what they are made of:
-1. Tokens (i.e. string content matching some part of the input), e.g. "[", "&&" or "const", and
-2. References to other rules.
+1. **Tokens** (i.e. string content matching some part of the input), e.g. `}` or `&&` or `const`, and
+2. **References** to other rules.
 
 Essentially, the "steps" you will pass as arguments to the definition of each rule will mostly consist of these two things,
 references to other rules and tokens that you want to read from the input.
@@ -97,16 +98,32 @@ This basic tokenization will allow you to match certain tokens, just by passing 
 For example the rule :
 
 ```python
-"1": (None, Token.LEFT_PARENTHESIS, Token.RIGHT_PARENTHESIS)
+"root.parentheses.empty.": [Token.LEFT_PARENTHESIS, Token.RIGHT_PARENTHESIS]
 ```
 has two steps that together match "()", even with whitespaces in between "(  )".
 
-### Matching exact tokens
-In some cases, merely specifying thy type of token that you want to match is not precise enough.
+### Matching exact Tokens
+In some cases, merely specifying the type of token that you want to match is not precise enough.
 To match a token with specific content, for example the identifier `func`, you can do this with the function `exactly`:
+
 ```python
-"1": (None, Token.exactly("func"), Token.IDENTIFIER)
+"root.function.": [Token.exactly("func"), Token.IDENTIFIER]
 ```
+
+### Referencing Rules
+
+You reference rules (or groups of rules) simply by writing their identification or common prefix as a string. For parsing a simple list of numbers, each separated by a comma, you'd write:
+
+```python
+grammmar = {
+    "list.nonempty.multiple.": ["list-element.", Token.COMMA, "list.nonempty."]
+    , "list.nonempty.single.": ["list-element."]
+    , "list.nonempty.single.": []
+    , "list-element.": [Token.NUMBER]
+}
+```
+
+# Reference
 
 ### Complete list of Standard Tokens
 
@@ -118,7 +135,7 @@ To match a token with specific content, for example the identifier `func`, you c
 | LESS_EQUAL | <= |
 | GREATER_EQUAL | >= |
 | AND_EQUAL | &= |
-| OR_EQUAL | \\\|= |
+| OR_EQUAL | \|= |
 | XOR_EQUAL | \^= |
 | PLUS_EQUAL | \+= |
 | MINUS_EQUAL | -= |
@@ -148,4 +165,5 @@ To match a token with specific content, for example the identifier `func`, you c
 | DOT | \\. |
 | IDENTIFIER | [a-zA-Z_][a-zA-Z0-9_]*\b |
 | NUMBER | (\\+\|-)?([1-9][0-9]*(\\.[0-9]*)?\\b\|\\.[0-9]+\\b\|0\\b) |
-| STRING | "(?P<value>([^"]\|\\\\")+)"
+| STRING | "(?P\<value\>([^"]\|\\\\")+)"
+| UNKNOWN | .

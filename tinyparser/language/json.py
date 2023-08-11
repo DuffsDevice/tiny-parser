@@ -1,4 +1,4 @@
-from .. import Rule, Token, Language
+from .. import Token, Language
 
 json = Language({
     "0.1": (eval, (Token.NUMBER, (None, "value"))),
@@ -15,4 +15,4 @@ json = Language({
     "2.2": {},
 
     "3.0": ({}, (Token.STRING, (None, "value")), Token.COLON, ("0.", (0, "value"))),
-})
+}, Token, "0.")

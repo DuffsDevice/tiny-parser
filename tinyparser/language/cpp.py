@@ -37,4 +37,4 @@ cpp_grammar = {
     "24.2": ( Literal , (Token.STRING, ("value", "value")) ),
     "24.3": ( Identifier , (Token.IDENTIFIER, ("name", "value")) ),
 }
-cpp = Language(cpp_grammar)
+cpp = Language(cpp_grammar, Token, "0.")

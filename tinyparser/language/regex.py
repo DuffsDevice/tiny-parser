@@ -86,4 +86,4 @@ regex_grammar = {
     "50.6": ( Character , (RegexToken.GENERAL_CHARACTER, ("value", "value")) ),
     "50.7": ( EscapeCharacter , (RegexToken.ESCAPED_CHARACTER, ("value", "character")) ),
 }
-regex = Language(regex_grammar, RegexToken)
+regex = Language(regex_grammar, RegexToken, "0.", None)
