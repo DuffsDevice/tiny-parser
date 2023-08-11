@@ -35,23 +35,23 @@ print(tinyparser.parse(json, '{"Hello": ["test", 4, {"what":30}]}'))
 # Output: {'Hello': ['test', 4, {'what': 30}]}
 ```
 
-# 1. Documentation
+# Documentation
 
-## 1.1   Specifying the Grammar
+## 1.   Specifying the Grammar
 The first constructor argument to the class `tinyparser.Language` is the grammar - a python dictionary containing all grammar rules.
 Each dictionary key maps a specific identification to a rule definition.
 
 ```python
 grammmar = {
     "root.option-A": ["number."]
-    "root.option-B": ["string."]
+    , "root.option-B": ["string."]
     , "number.": [Token.NUMBER]
     , "string.": [Token.STRING]
     # And so on...
 }
 ```
 
-### Rule Identifications
+### 1.1 Rule Identifications
 In principle, you can name your rules the way you like. For most cases however, you'll want a hierachical key structure.
 By doing this, you can reference groups of rules and thus enable disjunctions.
 This is, because tiny-parser rule references will match every rule that starts with a certain prefix.
@@ -61,11 +61,11 @@ By convention, all rule identifications should end in the separation character y
 
 **Note:** For educational purposes, all rule identifications are words. When you ship your code and/or  parsing speed is needed, numbers would suite the purpose just as well, but are quicker in parsing time. That is, the shorter your identifications, the quicker tiny-parser can resolve each reference.
 
-## 1.2 Rule Definitions
+### 1.2 Rule Definitions
 Rule definitions are either of the form `[steps...]` or `(target, steps...)`.
 If a rule is defined to match _nothing_ (the empty string) and therefore has no steps, you may just specify `target` (neither wrapped inside a tuple nor list). I.e., you may as well pass `None` .
 
-### Steps
+### 1.3 Steps
 This chapter will be all about the matching steps, i.e. _what_ you can match.
 
 Usually, language grammars come in different formats: BNF, EBNF, graphical control flow etc.
@@ -76,7 +76,7 @@ Common to all of them is, what they are made of:
 Essentially, the "steps" you will pass as arguments to the definition of each rule will mostly consist of these two things,
 references to other rules and tokens that you want to read from the input.
 
-### Parsing Tokens
+### 1.4 Parsing Tokens
 tiny-parser will parse your input in two stages: 1. tokenization, 2. rule matching.
 Tokenization is a common preparation step in parsing. Most compilers and source code analysis tools do this.
 Breaking up the input into it's atomic components (tokens) happens, because it eases the process of rule matching immensely.
@@ -102,7 +102,7 @@ For example the rule :
 ```
 has two steps that together match "()", even with whitespaces in between "(  )".
 
-### Matching exact Tokens
+### 1.5 Matching exact Tokens
 In some cases, merely specifying the type of token that you want to match is not precise enough.
 To match a token with specific content, for example the identifier `func`, you can do this with the function `exactly`:
 
@@ -110,7 +110,7 @@ To match a token with specific content, for example the identifier `func`, you c
 "root.function.": [Token.exactly("func"), Token.IDENTIFIER]
 ```
 
-### Referencing Rules
+### 1.6 Referencing Rules
 
 You reference rules (or groups of rules) simply by writing their identification or common prefix as a string. For parsing a simple list of numbers, each separated by a comma, you'd write:
 
@@ -122,6 +122,16 @@ grammmar = {
     , "list-element.": [Token.NUMBER]
 }
 ```
+
+### 1.7 Step Alternatives
+
+### 1.8 Step Destinations
+
+### 1.9 Step Result Transformers
+
+### 1.10 Custom Targets
+
+The `target` of a rule specifies its return value once its matched of the rule - so to speak.
 
 # Reference
 
