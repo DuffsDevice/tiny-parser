@@ -61,7 +61,7 @@ While this parsing result has all necessary information, it also contains unnece
 To improve this, tiny-parser allows you to **post-process intermediate parsing results** to enable the pretty datastructure of your choice.
 Whether its custom classes, dictionaries, lists... you name it.
 
-Since JSON is primarily a data-description language, why shouldn't we immediately return the content as python datastructure!?
+Since JSON is primarily a data-description language, why shouldn't we simpy turn the string input into the python datastructure!?
 In order to do this, our language grammar needs some meta information on how
 to process each rule (don't worry, everything you'll see will be explained later):
 
