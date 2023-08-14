@@ -6,8 +6,7 @@ tiny-parser enables you to **write arbitrary use-case specific parsers within mi
 It ships with a collection of predefined language defintions I started to write.
 
 ## Example: Parsing JSON
-In this example, the goal would be to write a parser that can read a json file and convert it into the corresponding python object.
-The language definition using tiny-parser looks like this:
+Defining the grammar of JSON using tiny-parser looks like this:
 
 ```python
 from tinyparser import Rule, Token, Language
