@@ -1,8 +1,9 @@
 # tiny-parser
 [![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-parser/blob/master/LICENCE)
 
-tiny-parser is a python library enabling you to write arbitrary use-case specific parsers within a couple of minutes.
-It comes with a collection of language defintions, that I started to write.
+tiny-parser enables you to **write arbitrary use-case specific parsers within minutes**.
+
+It ships with a collection of predefined language defintions I started to write.
 
 ## Example: Parsing JSON
 In this example, the goal would be to write a parser that can read a json file and convert it into the corresponding python object.
@@ -25,7 +26,7 @@ json = Language({
     "attribute.": [Token.STRING, Token.COLON, "root."],
 })
 ```
-That's it! If you'd like to parse some json now, you can do this through:
+**That's it!** If you'd like to parse some json now, you can do this through:
 ```python
 # Parse input into ast
 ast = tinyparser.parse(json, '{"Hello": "World"}')
@@ -55,7 +56,7 @@ tinyparser.print_ast(ast)
 ```
 
 While this parsing result has all necessary information, it also contains unnecessary information.
-tiny-parser allows you to post-process all parsing results and end up with the pretty datastructure of your choice.
+tiny-parser allows you to **post-process intermediate parsing results** to enable the pretty datastructure of your choice.
 Whether its custom classes, dictionaries, lists... you name it.
 
 Since JSON is primarily a data-description language, why shouldn't we immediately return the content as python datastructure!?
