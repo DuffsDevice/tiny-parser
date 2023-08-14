@@ -25,7 +25,9 @@ json = Language({
     "attribute.": [Token.STRING, Token.COLON, "root."],
 })
 ```
-**That's it!** If you'd like to parse some json now, you can do this through:
+**That's it!**
+
+If you'd like to parse some json now, you can do this through:
 ```python
 # Parse input into ast
 ast = tinyparser.parse(json, '{"Hello": "World"}')
