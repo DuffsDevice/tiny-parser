@@ -14,6 +14,58 @@ The language definition using tiny-parser looks like this:
 from tinyparser import Rule, Token, Language
 
 json = Language({
+    "root.number.": [Token.NUMBER],
+    "root.string.": [Token.STRING],
+    "root.list.": [Token.LEFT_SQUARE_BRACKET, "list.", Token.RIGHT_SQUARE_BRACKET],
+    "root.object.": [Token.LEFT_CURLY_BRACKET, "object.", Token.RIGHT_CURLY_BRACKET],
+    "list.nonempty.multiple.": ["root.", Token.COMMA, "list.nonempty."],
+    "list.nonempty.single.": ["root."],
+    "list.empty.": [],
+    "object.nonempty.multiple.": ["attribute.", Token.COMMA, "object.nonempty."],
+    "object.nonempty.single.": ["attribute."],
+    "object.empty.": [],
+    "attribute.": [Token.STRING, Token.COLON, "root."],
+})
+```
+That's it! If you'd like to parse some json now, you can do this through:
+```python
+# Parse input into ast
+ast = tinyparser.parse(json, '{"Hello": "World"}')
+
+# Inspection:
+tinyparser.print_ast(ast)
+
+""" Output:
+<root> = [root. > root.object.]
+    .children = [
+        .1 = [Token.LEFT_CURLY_BRACKET] = '{'
+        .2 = [object. > object.nonempty.single.]
+            .children = [
+                .1 = [attribute.]
+                    .children = [
+                        .1 = [Token.STRING] = 'Hello'
+                        .2 = [Token.COLON] = ':'
+                        .3 = [root. > root.string.]
+                            .children = [
+                                .1 = [Token.STRING] = 'World'
+                            ]
+                    ]
+            ]
+        .3 = [Token.RIGHT_CURLY_BRACKET] = '}'
+    ]
+"""
+```
+
+While this parsing result has all necessary information, it also contains unnecessary information.
+tiny-parser allows you to post-process all parsing results and end up with the pretty datastructure of your choice.
+Whether its custom classes, dictionaries, lists... you name it.
+
+Since JSON is primarily a data-description language, why shouldn't we immediately return the content as python datastructure!?
+In order to do this, our language grammar needs some meta information on how
+to process each rule (don't worry, everything you'll see will be explained later):
+
+```python
+json = Language({
     "root.number.": (eval, (Token.NUMBER, (None, "value"))),
     "root.string.": (None, (Token.STRING, (None, "value"))),
     "root.list.": ("#", Token.LEFT_SQUARE_BRACKET, ("list.", "#"), Token.RIGHT_SQUARE_BRACKET),
@@ -24,15 +76,14 @@ json = Language({
     "object.nonempty.multiple.": ({}, ("attribute.", ""), Token.COMMA, ("object.nonempty.", "")),
     "object.nonempty.single.": ({}, ("attribute.", "")),
     "object.empty.": ({}),
-    "attribute.": ({}, (Token.STRING, (None, "value")), Token.COLON, ("root.", (0, "value"))),
+    "attribute.": ({}, (Token.STRING, (None, "value")), Token.COLON, ("root.", 0)),
 })
 ```
-That's it. Nothing more.
 
-If you'd like to parse some json now, you can do this through:
+Now we can do:
 ```python
-print(tinyparser.parse(json, '{"Hello": ["test", 4, {"what":30}]}'))
-# Output: {'Hello': ['test', 4, {'what': 30}]}
+# Prints: {'Hello': 'World'}
+print( tinyparser.parse(json, '{"Hello" : "World"}') )
 ```
 
 # Documentation
