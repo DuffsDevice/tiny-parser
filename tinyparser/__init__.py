@@ -77,14 +77,14 @@ class Token(TokenType):
     DOT                     = r"^\."
     IDENTIFIER              = r"^[a-zA-Z_][a-zA-Z0-9_]*\b"
     NUMBER                  = r'^(\+|-)?([1-9][0-9]*(\.[0-9]*)?\b|\.[0-9]+\b|0\b)'
-    STRING                  = r'^"(?P<value>([^"]|\\")+)"'
+    STRING                  = r'^"(?P<value>([^"]|\\")*)"'
     UNKNOWN                 = r'^.'
 
 # Abstract Syntax Tree Base Class
 class AST:
     def __init__(self, *args, **kwargs):
         if args:
-            setattr(self, "parts", args)
+            setattr(self, "children", list(args))
         for key, value in kwargs.items():
             if key:
                 setattr(self, key, value)
@@ -176,7 +176,7 @@ def parse_ex(language: Language, rule_path: str, state_reference):
             self.destination = destination
             self.result = result
     history = [Step(state_reference, None, None)] # In order to enable recursion to reference the last step
-    matching_rule = None
+    identification = None
 
     # Determine viable rules
     viable_rules = [(key, rule) for key, rule in language.rules.items() if key.startswith(rule_path)]
@@ -193,6 +193,7 @@ def parse_ex(language: Language, rule_path: str, state_reference):
         else:
             target = rule
             steps = []
+        identification = key
 
         for step_number, step in enumerate(steps, 1):
 
@@ -233,13 +234,11 @@ def parse_ex(language: Language, rule_path: str, state_reference):
                     if not success:
                         history.pop() # Destroy the hypothetical step in history
                         continue
-
-                # The option matched
-                matching_rule = key
                 break
 
             else:
                 break # If we didn't find one (no inner "break" was activated)
+
         else: # The whole rule matched!
 
             result = {None:[]}
@@ -282,7 +281,7 @@ def parse_ex(language: Language, rule_path: str, state_reference):
             if True in [check_entry(entry) for entry in language.make_input_tokens_available]:
                 result["input_tokens"] = state_reference[0].delta_tokens( history[-1].state_reference[0] )
             if True in [check_entry(entry) for entry in language.make_grammar_rule_available]:
-                result["grammar_rule"] = (rule_path, matching_rule)
+                result["grammar_rule"] = (rule_path, identification)
 
             # Override the parser state of the parent function, so it knows where to continue parsing
             state_reference[0] = history[-1].state_reference[0]
@@ -351,7 +350,10 @@ def print_ast(value, indent=None):
             else:
                 print( value.__class__.__name__)
         elif hasattr(value, "grammar_rule"):
-            print( '[' + value.grammar_rule[1] + '] <- "' + value.grammar_rule[0] + '"')
+            if value.grammar_rule[0] == value.grammar_rule[1]:
+                print( '[' + value.grammar_rule[0] + ']')
+            else:
+                print( '[' + value.grammar_rule[0] + ' > ' + value.grammar_rule[1] + ']')
         else:
             print("Abstract Syntax Tree")
         for attribute, value in vars(value).items():

@@ -14,5 +14,5 @@ json = Language({
     "2.1.2": ({}, ("3.", "")),
     "2.2": {},
 
-    "3.0": ({}, (Token.STRING, (None, "value")), Token.COLON, ("0.", (0, "value"))),
+    "3.0": ({}, (Token.STRING, (None, "value")), Token.COLON, ("0.", 0)),
 }, Token, "0.")
