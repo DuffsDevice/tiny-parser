@@ -4,7 +4,7 @@
 tiny-parser is a python library enabling you to write arbitrary use-case specific parsers within a couple of minutes.
 It comes with a collection of language defintions, that I started to write.
 
-## Example: JSON
+## Example: Parsing JSON
 In this example, the goal would be to write a parser that can read a json file and convert it into the corresponding python object.
 The language definition using tiny-parser looks like this:
 
