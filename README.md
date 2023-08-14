@@ -20,10 +20,10 @@ json = Language({
     "root.object.": ("#", Token.LEFT_CURLY_BRACKET, ("object.", "#"), Token.RIGHT_CURLY_BRACKET),
     "list.nonempty.multiple.": ([], "root.", (Token.COMMA, []), "list.nonempty."),
     "list.nonempty.single.": ([], "root."),
-    "list.empty.": [],
+    "list.empty.": ([]),
     "object.nonempty.multiple.": ({}, ("attribute.", ""), Token.COMMA, ("object.nonempty.", "")),
     "object.nonempty.single.": ({}, ("attribute.", "")),
-    "object.empty.": {},
+    "object.empty.": ({}),
     "attribute.": ({}, (Token.STRING, (None, "value")), Token.COLON, ("root.", (0, "value"))),
 })
 ```
