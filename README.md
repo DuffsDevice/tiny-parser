@@ -27,6 +27,7 @@ json = Language({
 ```
 **That's it!**
 
+
 If you'd like to parse some json now, you can do this through:
 ```python
 # Parse input into ast
@@ -57,7 +58,7 @@ tinyparser.print_ast(ast)
 ```
 
 While this parsing result has all necessary information, it also contains unnecessary information.
-tiny-parser allows you to **post-process intermediate parsing results** to enable the pretty datastructure of your choice.
+To improve this, tiny-parser allows you to **post-process intermediate parsing results** to enable the pretty datastructure of your choice.
 Whether its custom classes, dictionaries, lists... you name it.
 
 Since JSON is primarily a data-description language, why shouldn't we immediately return the content as python datastructure!?
